@@ -1,0 +1,239 @@
+<!doctype html>
+<!-- AOverlay for Stream Music - made and distributed by AOSABI. See LICENSE.txt. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>AOverlay for Stream Music</title>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: transparent; overflow: hidden; }
+  #wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #bar {
+    --ext: 0px; --extv: 0px;
+    position: relative; display: inline-flex; align-items: center;
+    max-width: 100%; box-sizing: border-box;
+    padding: 0.28em max(0px, calc(0.7em - var(--ext))); white-space: nowrap;
+    opacity: 0; transition: opacity 0.4s ease; line-height: 1.3;
+  }
+  /* Spacing between header and title stays the same even though each block now carries its
+     own leading/trailing room. */
+  #head { flex: none; margin-right: calc(0.5em - 2 * var(--ext)); }
+  /* Nothing clips the text unless it is scrolling. */
+  #win  { position: relative; overflow: visible; }
+  #track { display: inline-flex; align-items: center; white-space: nowrap; will-change: transform; }
+  #gap { display: inline-block; }
+  .hl { color: var(--hl); }
+  .sep { color: var(--hl); white-space: pre; }
+
+  /* Each piece of text is three stacked copies that line up exactly: the drop shadow at the
+     bottom, the outline above it, the letters on top. They are separate layers so each has its
+     own transparency, and so the outline/shadow never change where the letters sit. */
+  .lay { position: relative; display: inline-block; }
+  /* Leading and trailing space on every text block, wide enough for the font's lean plus the
+     outline and shadow, so no edge of a letter ever sits at the edge of its block. */
+  .sh, .ol, .fi { padding: 0 var(--ext); }
+  .sh  { position: absolute; left: 0; top: 0; color: transparent; text-shadow: var(--sh);
+         opacity: var(--shop); display: none; }
+  .ol  { position: absolute; left: 0; top: 0; color: var(--olc);
+         -webkit-text-stroke: var(--olw) var(--olc); filter: var(--olblur);
+         opacity: var(--olop); display: none; }
+  .ol * { color: var(--olc) !important; }
+  .fi  { position: relative; opacity: var(--fiop); }
+  #bar.has-shadow .sh { display: inline-block; }
+  #bar.outlined .ol { display: inline-block; }
+
+  /* Scrolling: the header is a fixed block on the left. The title scrolls in its own area to
+     the right, fading out softly before it reaches the header and before the right edge, so a
+     letter (and its outline/shadow) is never hard-cut. */
+  #bar.scroll #win {
+    overflow: hidden;
+    padding: var(--extv) 0; margin: calc(-1 * var(--extv)) 0;   /* room above and below too */
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="bar">
+    <span id="head" class="lay hl"></span>
+    <div id="win"><div id="track"><span id="a" class="lay"></span><span id="gap"></span><span id="b" class="lay"></span></div></div>
+  </div>
+</div>
+<script>
+(function () {
+  var bar = document.getElementById('bar'), head = document.getElementById('head'),
+      win = document.getElementById('win'), track = document.getElementById('track'),
+      a = document.getElementById('a'), b = document.getElementById('b'), gap = document.getElementById('gap');
+  var S = null, lastKey = '', lastStyle = '', visible = false;
+  var scrolling = false, offset = 0, loopWidth = 0, lastTs = 0;
+  var SHADOW = '0 2px 4px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.95)';
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function num(v, d) { v = Number(v); return isFinite(v) ? v : d; }
+  function op(v) { return Math.max(0, Math.min(1, (100 - num(v, 0)) / 100)); }  // transparency % -> opacity
+  function em() { return num(S && S.fontSize, 32); }
+  function layered(html) {
+    return '<span class="sh">' + html + '</span><span class="ol">' + html + '</span><span class="fi">' + html + '</span>';
+  }
+
+  function applyStyle(s) {
+    var key = JSON.stringify(s);
+    if (key === lastStyle) return false;
+    lastStyle = key;
+    var family = String(s.fontFamily || 'Segoe UI').replace(/["\\]/g, '');
+    bar.style.fontFamily = '"' + family + '", "Segoe UI", Arial, sans-serif';
+    bar.style.fontSize = num(s.fontSize, 32) + 'px';
+    bar.style.fontWeight = s.fontBold ? '700' : '400';
+    bar.style.fontStyle = s.fontItalic ? 'italic' : 'normal';
+    bar.style.color = s.textColor || '#FFFFFF';
+    bar.style.setProperty('--hl', s.highlightColor || '#FFC83D');
+    bar.style.borderRadius = num(s.cornerRadius, 12) + 'px';
+    if (s.showBackground === false) {
+      bar.style.background = 'transparent';
+    } else {
+      var h = String(s.backgroundColor || '#101018').replace('#', '');
+      if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+      var n = parseInt(h, 16) || 0;
+      bar.style.background = 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + ((100 - num(s.backgroundTransparency, 35)) / 100) + ')';
+    }
+
+    var outlined = !!s.outlineEnabled && num(s.outlineThickness, 3) > 0;
+    bar.classList.toggle('outlined', outlined);
+    bar.classList.toggle('has-shadow', !!s.textShadow);
+    bar.style.setProperty('--olc', s.outlineColor || '#000000');
+    bar.style.setProperty('--olw', (num(s.outlineThickness, 3) * 2) + 'px');
+    bar.style.setProperty('--olblur', num(s.outlineFade, 2) > 0 ? 'blur(' + num(s.outlineFade, 2) + 'px)' : 'none');
+    bar.style.setProperty('--sh', SHADOW);
+    bar.style.setProperty('--fiop', op(s.textTransparency));
+    bar.style.setProperty('--olop', op(s.outlineTransparency));
+    bar.style.setProperty('--shop', op(s.shadowTransparency));
+
+    // How far a letter's paint can reach past its nominal width: the font's lean (brush and
+    // italic fonts overhang), plus the outline and its fade, plus the drop shadow.
+    var reach = (outlined ? num(s.outlineThickness, 3) + num(s.outlineFade, 2) * 2 : 0) + (s.textShadow ? 6 : 0);
+    var ext = Math.ceil(num(s.fontSize, 32) * 0.35 + reach + 2);
+    var extv = Math.ceil(num(s.fontSize, 32) * 0.35 + reach + 2);
+    bar.style.setProperty('--ext', ext + 'px');
+    bar.style.setProperty('--extv', extv + 'px');
+
+    head.innerHTML = layered(esc(s.headerText || ''));
+    head.style.display = s.headerText ? '' : 'none';
+    gap.style.width = (em() * 5) + 'px';
+    return true;
+  }
+
+  function buildHtml(s, tracks) {
+    if (!tracks.length) return s.hideWhenIdle ? null : '<span>' + esc(s.idleText) + '</span>';
+    if (tracks.length === 1) {
+      var t = tracks[0];
+      return '<span>' + (s.showSourceSingle && t.source ? '<span class="hl">' + esc(t.source) + ':</span> ' : '') + esc(t.name) + '</span>';
+    }
+    var sep = '<span class="sep">' + esc(s.separator) + '</span>';
+    var parts = ['<span class="hl">' + esc(String(s.multipleTracksText || '{count} tracks open').replace('{count}', tracks.length)) + '</span>'];
+    tracks.forEach(function (t) { parts.push('<span>' + (t.source ? '<span class="hl">' + esc(t.source) + ':</span> ' : '') + esc(t.name) + '</span>'); });
+    return parts.join(sep);
+  }
+
+  function layout() {
+    if (!S) return;
+    bar.classList.remove('scroll');
+    bar.style.width = '';
+    win.style.width = 'auto';
+    win.style.webkitMaskImage = 'none'; win.style.maskImage = 'none';
+    track.style.paddingLeft = '0'; track.style.paddingRight = '0';
+    track.style.transform = 'translateX(0)';
+    gap.style.display = 'none'; b.style.display = 'none';
+
+    // Widths here already include each block's leading/trailing room.
+    var titleW = a.getBoundingClientRect().width;
+    var headW = head.style.display === 'none' ? 0 : head.getBoundingClientRect().width + parseFloat(getComputedStyle(head).marginRight);
+    var padX = parseFloat(getComputedStyle(bar).paddingLeft) || 0;
+    var margin = 6;
+    var avail = window.innerWidth - margin - padX * 2 - headW;
+
+    if (titleW <= avail && !S.alwaysScroll) {
+      // Fits: centered, still, and nothing clips it.
+      scrolling = false; offset = 0;
+      reportState();
+      return;
+    }
+
+    scrolling = true;
+    gap.style.display = 'inline-block'; b.style.display = 'inline-block';
+    var barW = window.innerWidth - margin;
+    bar.style.width = Math.floor(barW) + 'px';
+    bar.classList.add('scroll');
+    var winW = Math.max(20, Math.floor(barW - padX * 2 - headW));
+    win.style.width = winW + 'px';
+
+    // Fade wider than the outline+shadow, at both ends of the title's own area.
+    var fade = Math.max(em() * 1.5, num(S.outlineThickness, 3) * 2 + num(S.outlineFade, 2) * 2 + 16);
+    fade = Math.min(fade, winW / 3);
+    track.style.paddingRight = Math.ceil(fade) + 'px';
+    var p = (fade / winW * 100).toFixed(2);
+    var mask = 'linear-gradient(90deg, transparent 0, #000 ' + p + '%, #000 ' + (100 - p).toFixed(2) + '%, transparent 100%)';
+    win.style.webkitMaskImage = mask; win.style.maskImage = mask;
+
+    // Leading space so the title starts clear of the left fade, never cut.
+    track.style.paddingLeft = Math.ceil(fade) + 'px';
+    loopWidth = titleW + gap.getBoundingClientRect().width;
+    if (offset > loopWidth) offset = 0;
+    reportState();
+  }
+
+  // Tell the helper whether the text is scrolling, so the settings preview matches the stream.
+  var lastReport = '', lastReportAt = 0;
+  function reportState() {
+    var body = JSON.stringify({ scrolling: scrolling, width: window.innerWidth });
+    var now = Date.now();
+    if (body === lastReport && now - lastReportAt < 4000) return;
+    lastReport = body; lastReportAt = now;
+    fetch('/overlay-state', { method: 'POST', body: body, headers: { 'Content-Type': 'text/plain' } }).catch(function () {});
+  }
+
+  function render(d) {
+    S = d.settings || {};
+    var styleChanged = applyStyle(S);
+    var tracks = Array.isArray(d.tracks) ? d.tracks : (d.tracks ? [d.tracks] : []);
+    var html = buildHtml(S, tracks);
+    if (html === null) { setVisible(false); lastKey = ''; return; }
+    if (html !== lastKey) { lastKey = html; a.innerHTML = layered(html); b.innerHTML = layered(html); offset = 0; layout(); }
+    else if (styleChanged) { layout(); }
+    if (styleChanged) setTimeout(layout, 400);
+    setVisible(true);
+  }
+
+  function setVisible(v) {
+    visible = v;
+    bar.style.opacity = v ? String(op(S && S.overallTransparency)) : '0';
+  }
+
+  function frame(ts) {
+    var dt = lastTs ? Math.min(0.1, (ts - lastTs) / 1000) : 0;
+    lastTs = ts;
+    if (scrolling && visible && loopWidth > 0) {
+      offset = (offset + num(S.scrollSpeed, 90) * dt) % loopWidth;
+      track.style.transform = 'translateX(' + (-offset).toFixed(2) + 'px)';
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function poll() {
+    fetch('/data', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(render)
+      .then(function () { if (visible) reportState(); })
+      .catch(function () { setVisible(false); lastKey = ''; })
+      .then(function () { setTimeout(poll, 1000); });
+  }
+
+  window.addEventListener('resize', layout);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
+  requestAnimationFrame(frame);
+  poll();
+})();
+</script>
+</body>
+</html>

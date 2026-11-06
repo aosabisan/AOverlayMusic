@@ -1,0 +1,56 @@
+﻿Copyright © 2026 aosabi tatsuya (青錆竜也). All Rights Reserved.
+
+AOverlay for Stream Music (the "Software"), including its installer, scripts, overlay page,
+browser connector script, icon and documentation, is made and distributed by
+aosabi tatsuya (青錆竜也), also known as AOSABI (the "Author"). The only official
+source of the Software is the Author's own GitHub repository and its releases page.
+
+By accessing, downloading, installing, forking, or using the Software, you agree to the
+following terms and conditions. If you do not agree, do not access, download, install,
+fork, or use it.
+
+1. Grant of Free Use: The Author grants you a personal, non-exclusive, non-transferable,
+   revocable, royalty-free right to install and use the Software, unmodified and free of
+   charge, including on your own live streams and videos whether or not they earn money,
+   without the requirement of attribution or accreditation.
+
+2. GitHub Forks: If you view or fork the Software's repository on GitHub, you do so only
+   under the limited rights that GitHub's Terms of Service give other users of public
+   repositories. Those rights do not include any of the acts listed in section 3. A fork
+   remains the Author's work and is fully covered by this license.
+
+3. Strict Restrictions: You may not, under any circumstances:
+   * Redistribute: Share, upload, host, publish, mirror, or distribute the Software or
+     any portion of it, except through the Author's official GitHub repository and
+     GitHub's built-in fork feature as described in section 2. To share the Software,
+     link to the Author's official GitHub repository or its releases page.
+   * Monetize: Sell, rent, license, or charge any fee for the Software or for access to
+     it, or include it in any paid product, bundle, or service.
+   * Use in Other Works: Use the Software, or any portion of its code, design, or assets,
+     in any other program, overlay, project, or product, whether paid or free.
+   * Claim as Your Own: Present the Software or any portion of it as your own work, or
+     remove, hide, or alter any credit, copyright, or license notice in it.
+   * Modify: Alter, transform, build upon, or create derivative works from the Software
+     in any way. Changing options through the Software's own settings window is not a
+     modification.
+   * Reverse Engineer: Decompile, disassemble, extract, copy, or study the code,
+     structure, or assets of the Software in order to reproduce, reuse, or recreate any
+     part of it.
+   * Tamper: Crack, patch, or bypass any part of the Software.
+
+4. Intellectual Property: All title, ownership rights, and intellectual property rights in
+   and to the Software remain exclusively with the Author. This license grants you no
+   ownership of any kind.
+
+5. Termination: This license ends automatically if you break any of these terms. You must
+   then stop using the Software and delete all copies, including any fork. The Author may
+   pursue any remedy available under law for a breach, including theft, unauthorized
+   redistribution or monetization, false claims of authorship, or reverse engineering of
+   the Software.
+
+6. Disclaimer of Warranties: The Software is provided "as is" without warranty of any
+   kind, express or implied. The Author shall not be held liable for any damages arising
+   out of the use or inability to use the Software.
+
+7. Other Products: The Software works with third-party programs and websites such as VLC
+   media player and Suno. It is not made, endorsed, or supported by them.
